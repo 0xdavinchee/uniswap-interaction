@@ -48,7 +48,7 @@ To get a local copy up and running follow these simple steps.
 
 1. Clone the repo
    ```sh
-   git clone https://github.com/0xdavinchee/ethhole-voting-dapp.git
+   git clone https://github.com/0xdavinchee/uniswap-interaction.git
    ```
 2. Install NPM packages
    ```sh
@@ -78,4 +78,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 [@0xdavinchee](https://twitter.com/@0xdavinchee) - 0xdavinchee@gmail.com
 
-Project Link: [https://github.com/0xdavinchee/ethhole-voting-dapp](https://github.com/0xdavinchee/ethhole-voting-dapp)
+Project Link: [https://github.com/0xdavinchee/uniswap-interaction](https://github.com/0xdavinchee/uniswap-interaction)

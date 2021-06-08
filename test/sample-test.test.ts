@@ -1,22 +1,21 @@
 import { expect } from "./chai-setup";
-import { Greeter } from "../typechain";
+import { Swapper } from "../typechain";
 import { ethers, deployments } from "hardhat";
 
 const setup = async () => {
-  await deployments.fixture(["Greeter"]);
+  await deployments.fixture(["Swapper"]);
   const contracts = {
-    Greeter: await ethers.getContract("Greeter") as Greeter,
+    Swapper: (await ethers.getContract("Swapper")) as Swapper,
   };
 
   return { ...contracts };
 };
 
-describe("Greeter", function () {
-  it("Should return the new greeting once it's changed", async function () {
-    const { Greeter } = await setup();
-    expect(await Greeter.greet()).to.equal("Hello Hardhat!");
+const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
+const LINK_ADDRESS = "0x514910771af9ca656af840dff83e8264ecf986ca";
 
-    await Greeter.setGreeting("Hola, mundo!");
-    expect(await Greeter.greet()).to.equal("Hola, mundo!");
+describe("Swapper", function () {
+  it("Should return the new greeting once it's changed", async function () {
+    const { Swapper } = await setup();
   });
 });

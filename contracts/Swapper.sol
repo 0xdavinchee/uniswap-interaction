@@ -86,4 +86,68 @@ contract Swapper {
             );
         return amounts;
     }
+
+    function swapExactETHforTokens(address[] calldata path)
+        external
+        payable
+        returns (uint256[])
+    {
+        uint256[] memory amountsOut = router.getAmountsOut(msg.value, path);
+        uint256[] memory amounts =
+            router.swapExactETHForTokens(
+                amountsOut[1],
+                path,
+                msg.sender,
+                block.timestamp
+            );
+        return amounts;
+    }
+
+    function swapTokensForExactETH(uint256 amountOut, address[] calldata path)
+        external
+        returns (uint256[])
+    {
+        uint256[] memory amountsIn = router.getAmountsIn(amountOut, path);
+        uint256[] amounts =
+            router.swapTokensForExactETH(
+                amountOut,
+                amountsIn[0],
+                path,
+                msg.sender,
+                block.timestamp
+            );
+        return amounts;
+    }
+
+    function swapExactTokensForETH(uint256 amountIn, address[] calldata path)
+        external
+        returns (uint256[] memory)
+    {
+        uint256[] memory amountsOut = router.getAmountsOut(amountIn, path);
+        uint256[] amounts =
+            router.swapExactTokensForETH(
+                amountIn,
+                amountsOut[1],
+                path,
+                msg.sender,
+                block.timestamp
+            );
+        return amounts;
+    }
+
+    function swapETHForExactTokens(address[] calldata path)
+        external
+        payable
+        returns (uint256[])
+    {
+        uint256[] memory amountsOut = router.getAmountsOut(msg.value, path);
+        uint256[] amounts =
+            router.swapETHForExactTokens(
+                amountOut,
+                path,
+                msg.sender,
+                block.timestamp
+            );
+        return amounts;
+    }
 }

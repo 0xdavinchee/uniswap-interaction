@@ -34,12 +34,11 @@ const config: HardhatUserConfig = {
         "ecdd79c908e3bcd1387a6f0ccac319ce919f35bf116416123ba815a2b6fe0e08",
       ],
     },
-    // hardhat: {
-    //   forking: {
-    //     url: "https://eth-mainnet.alchemyapi.io/v2/dBvUq7mS2ls7ATR2Uux2Ld1NwsVoxo3l",
-    //     blockNumber: 12592080,
-    //   },
-    // },
+    hardhat: {
+      forking: {
+        url: "https://eth-mainnet.alchemyapi.io/v2/dBvUq7mS2ls7ATR2Uux2Ld1NwsVoxo3l",
+      },
+    },
   },
   namedAccounts: {
     deployer: 0,

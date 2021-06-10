@@ -74,12 +74,12 @@ contract Swapper {
         address[] calldata path
     ) external returns (uint256[] memory) {
         IERC20 token = IERC20(path[0]);
-        token.approve(address(router), amountIn);
+        token.approve(address(router), amountInMax);
         uint256[] memory amountsIn = router.getAmountsIn(amountOut, path);
         uint256[] memory amounts =
             router.swapTokensForExactTokens(
                 amountOut,
-                amountsIn,
+                amountsIn[0],
                 path,
                 msg.sender,
                 block.timestamp
@@ -90,7 +90,7 @@ contract Swapper {
     function swapExactETHforTokens(address[] calldata path)
         external
         payable
-        returns (uint256[])
+        returns (uint256[] memory)
     {
         uint256[] memory amountsOut = router.getAmountsOut(msg.value, path);
         uint256[] memory amounts =
@@ -105,10 +105,10 @@ contract Swapper {
 
     function swapTokensForExactETH(uint256 amountOut, address[] calldata path)
         external
-        returns (uint256[])
+        returns (uint256[] memory)
     {
         uint256[] memory amountsIn = router.getAmountsIn(amountOut, path);
-        uint256[] amounts =
+        uint256[] memory amounts =
             router.swapTokensForExactETH(
                 amountOut,
                 amountsIn[0],
@@ -124,7 +124,7 @@ contract Swapper {
         returns (uint256[] memory)
     {
         uint256[] memory amountsOut = router.getAmountsOut(amountIn, path);
-        uint256[] amounts =
+        uint256[] memory amounts =
             router.swapExactTokensForETH(
                 amountIn,
                 amountsOut[1],
@@ -138,12 +138,12 @@ contract Swapper {
     function swapETHForExactTokens(address[] calldata path)
         external
         payable
-        returns (uint256[])
+        returns (uint256[] memory)
     {
         uint256[] memory amountsOut = router.getAmountsOut(msg.value, path);
-        uint256[] amounts =
+        uint256[] memory amounts =
             router.swapETHForExactTokens(
-                amountOut,
+                amountsOut[1],
                 path,
                 msg.sender,
                 block.timestamp

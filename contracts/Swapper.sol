@@ -101,7 +101,7 @@ contract Swapper {
 
         // borrow 1 ETH for example
         // note: ensure that amount0 is actually tokenA and amount1 is actually _otherToken
-        IUniswapV2Pair(pair).swap(
+        IUniswapV2Pair(pairAddress).swap(
             _amount0Out,
             _amount1Out,
             address(this),

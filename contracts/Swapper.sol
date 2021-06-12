@@ -81,38 +81,38 @@ contract Swapper {
     }
 
     function executeFlashArbitrage(
-        address tokenA,
-        address tokenB,
-        uint256 amount0Out,
-        uint256 amount1Out,
-        bool uniToSushi
+        address _borrowToken,
+        address _otherToken,
+        uint256 _amount0Out,
+        uint256 _amount1Out,
+        bool _uniToSushi
     ) external {
         require(
             msg.sender == owner,
             "You are not allowed to call this contract."
         );
 
-        address pair =
-            IUniswapV2Factory(uniToSushi ? uniFactory : sushiFactory).getPair(
-                tokenA,
-                tokenB
+        address pairAddress =
+            IUniswapV2Factory(_uniToSushi ? uniFactory : sushiFactory).getPair(
+                _borrowToken,
+                _otherToken
             );
-        require(pair != address(0), "Pair doesn't exist.");
+        require(pairAddress != address(0), "Pair doesn't exist.");
 
         // borrow 1 ETH for example
-        // note: ensure that amount0 is actually tokenA and amount1 is actually tokenB
+        // note: ensure that amount0 is actually tokenA and amount1 is actually _otherToken
         IUniswapV2Pair(pair).swap(
-            amount0Out,
-            amount1Out,
+            _amount0Out,
+            _amount1Out,
             address(this),
-            abi.encode(uniToSushi)
+            abi.encode(_uniToSushi)
         );
     }
 
     function uniswapV2Call(
-        address sender,
-        uint256 amount0,
-        uint256 amount1,
+        address _sender,
+        uint256 _amount0,
+        uint256 _amount1,
         bytes calldata data
     ) external {
         address[] memory path = new address[](2); // going from new asset to borrowed asset
@@ -131,17 +131,17 @@ contract Swapper {
                 "Ensure sender is a pair."
             );
             require(
-                sender == address(this),
+                _sender == address(this),
                 "You are unauthorized to call this."
             );
             require(
-                amount0 == 0 || amount1 == 0,
+                _amount0 == 0 || _amount1 == 0,
                 "Unidirectional trades only."
             );
 
             // specify the path is from not borrowed to borrowed (e.g. UNI TO WETH)
-            path[0] = amount0 == 0 ? token0 : token1;
-            path[1] = amount0 == 0 ? token1 : token0;
+            path[0] = _amount0 == 0 ? token0 : token1;
+            path[1] = _amount0 == 0 ? token1 : token0;
 
             // specify the trade path borrowed to not borrowed (e.g. WETH to DAI)
             swapPath[0] = path[1];
@@ -149,7 +149,7 @@ contract Swapper {
         }
 
         // borrowAmount will be the non-zero amount
-        uint256 borrowAmount = amount0 == 0 ? amount1 : amount0;
+        uint256 borrowAmount = _amount0 == 0 ? _amount1 : _amount0;
 
         // we want to see how much UNI we need to return given the borrowed amount of path[1] (WETH)
         uint256 amountRequired =

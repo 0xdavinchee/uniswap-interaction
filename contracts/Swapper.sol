@@ -1,13 +1,15 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
 
-import "hardhat/console.sol";
-import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+// import "hardhat/console.sol";
+import "./UniswapV2Library.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+// unisw factory: 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f,
+// sushi factory: 0xc35DADB65012eC5796536bD9864eD8773aBc74C4,
 // rinkeby DAI: 0xc7ad46e0b8a400bb3c915120d284aafba8fc4735
 // rinkeby UNI: 0x1f9840a85d5af5bf1d1762f925bdaddc4201f984
 // rinkeby WETH: 0xc778417e063141139fce010982780140aa0cd5ab
@@ -34,7 +36,7 @@ contract Swapper {
         owner = msg.sender;
     }
 
-    function executeArbitrage(
+    function executeFlashArbitrage(
         address tokenA,
         address tokenB,
         uint256 amount0Out,
@@ -102,9 +104,17 @@ contract Swapper {
 
         // we want to see how much UNI we need to return given the borrowed amount of path[1] (WETH)
         uint256 amountRequired =
-            UniswapV2Library.getAmountsIn(address(factory), borrowAmount, path)[
-                0
-            ];
+            uniToSushi
+                ? UniswapV2Library.getAmountsIn(
+                    address(factory),
+                    borrowAmount,
+                    path
+                )[0]
+                : SushiswapV2Library.getAmountsIn(
+                    address(factory),
+                    borrowAmount,
+                    path
+                )[0];
 
         // we want to see how much UNI we will get (WETH => UNI) given borrowed amount of path[0] (WETH)
         uint256 amountOutputExpected =
@@ -136,4 +146,21 @@ contract Swapper {
         IERC20(swapPath[1]).approve(sender, profit);
         IERC20(swapPath[1]).transfer(sender, profit);
     }
+
+    function withdrawTokens(address _tokenAddress) external {
+        require(msg.sender == owner);
+        IERC20 token = IERC20(_tokenAddress);
+        uint256 tokenBalance = token.balanceOf(address(this));
+        require(tokenBalance > 0);
+        token.approve(msg.sender, tokenBalance);
+        token.transfer(msg.sender, tokenBalance);
+    }
+
+    function withdrawEth() external payable {
+        require(msg.sender == owner);
+        (bool success, ) = msg.sender.call{value: address(this).balance}("");
+        require(success, "Could not withdraw.");
+    }
+
+    receive() external payable {}
 }

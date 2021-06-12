@@ -1,8 +1,7 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
 
-// import "hardhat/console.sol";
-import "./UniswapV2Library.sol";
+import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
@@ -34,6 +33,51 @@ contract Swapper {
         uniRouter = _uniRouter;
         sushiRouter = _sushiRouter;
         owner = msg.sender;
+    }
+
+    /**
+     * Sends token from path[0] to path[1] on one exchange
+     * and back from path[1] to path[0] on another
+     */
+    function executeBasicArbitrage(
+        uint256 amountIn,
+        address[] calldata path,
+        bool isUniToSushi
+    ) external {
+        require(
+            msg.sender == owner,
+            "You are not allowed to call this contract."
+        );
+
+        IUniswapV2Router02 routerA = isUniToSushi ? uniRouter : sushiRouter;
+        IUniswapV2Router02 routerB = isUniToSushi ? sushiRouter : uniRouter;
+
+        uint256 amountOut = routerA.getAmountsOut(amountIn, path)[1];
+        IERC20 initialToken = IERC20(path[0]);
+        initialToken.approve(address(routerA), amountIn);
+        uint256[] memory amounts =
+            routerA.swapExactTokensForTokens(
+                amountIn,
+                amountOut,
+                path,
+                address(this),
+                block.timestamp
+            );
+
+        IERC20 returnToken = IERC20(path[1]);
+        address[] memory newPath = new address[](path.length);
+        for (uint256 i = 0; i < path.length; i++) {
+            newPath[i] = path[path.length - (i + 1)];
+        }
+        uint256 amountOutB = routerB.getAmountsOut(amounts[1], newPath)[1];
+        returnToken.approve(address(routerB), amounts[1]);
+        routerB.swapExactTokensForTokens(
+            amounts[1],
+            amountOutB,
+            newPath,
+            msg.sender,
+            block.timestamp
+        );
     }
 
     function executeFlashArbitrage(
@@ -74,7 +118,7 @@ contract Swapper {
         address[] memory path = new address[](2); // going from new asset to borrowed asset
         address[] memory swapPath = new address[](2); // going from borrowed asset to new asset
         bool uniToSushi = abi.decode(data, (bool));
-        IUniswapV2Factory factory = uniToSushi ? uniFactory : sushiFactory;
+        IUniswapV2Router02 returnRouter = uniToSushi ? uniRouter : sushiRouter;
         IUniswapV2Router02 tradeRouter = uniToSushi ? sushiRouter : uniRouter;
 
         {
@@ -82,8 +126,13 @@ contract Swapper {
             address token1 = IUniswapV2Pair(msg.sender).token1();
             require(
                 msg.sender ==
-                    IUniswapV2Factory(factory).getPair(token0, token1),
+                    IUniswapV2Factory(uniToSushi ? uniFactory : sushiFactory)
+                        .getPair(token0, token1),
                 "Ensure sender is a pair."
+            );
+            require(
+                sender == address(this),
+                "You are unauthorized to call this."
             );
             require(
                 amount0 == 0 || amount1 == 0,
@@ -104,17 +153,7 @@ contract Swapper {
 
         // we want to see how much UNI we need to return given the borrowed amount of path[1] (WETH)
         uint256 amountRequired =
-            uniToSushi
-                ? UniswapV2Library.getAmountsIn(
-                    address(factory),
-                    borrowAmount,
-                    path
-                )[0]
-                : SushiswapV2Library.getAmountsIn(
-                    address(factory),
-                    borrowAmount,
-                    path
-                )[0];
+            returnRouter.getAmountsIn(borrowAmount, path)[0];
 
         // we want to see how much UNI we will get (WETH => UNI) given borrowed amount of path[0] (WETH)
         uint256 amountOutputExpected =
@@ -143,8 +182,8 @@ contract Swapper {
 
         // calculate the remaining amount left (profit) and return to sender.
         uint256 profit = amountOutputExpected - amountRequired;
-        IERC20(swapPath[1]).approve(sender, profit);
-        IERC20(swapPath[1]).transfer(sender, profit);
+        IERC20(swapPath[1]).approve(owner, profit);
+        IERC20(swapPath[1]).transfer(owner, profit);
     }
 
     function withdrawTokens(address _tokenAddress) external {

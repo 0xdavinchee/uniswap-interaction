@@ -7,13 +7,10 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-// unisw factory: 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f,
-// sushi factory: 0xc35DADB65012eC5796536bD9864eD8773aBc74C4,
-// rinkeby DAI: 0xc7ad46e0b8a400bb3c915120d284aafba8fc4735
-// rinkeby UNI: 0x1f9840a85d5af5bf1d1762f925bdaddc4201f984
-// rinkeby WETH: 0xc778417e063141139fce010982780140aa0cd5ab
-// uni: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
-// sushi: 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506
+// Improvements (v2)
+// - passing in the optimal path to execute the trade
+// - using the uniswaplibrary maximize profit function
+// - passing in other things into data for profitability
 
 contract Swapper {
     IUniswapV2Factory public uniFactory;
@@ -99,11 +96,13 @@ contract Swapper {
             );
         require(pairAddress != address(0), "Pair doesn't exist.");
 
-        // borrow 1 ETH for example
-        // note: ensure that amount0 is actually tokenA and amount1 is actually _otherToken
-        IUniswapV2Pair(pairAddress).swap(
-            _amount0Out,
-            _amount1Out,
+        IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
+        uint256 amount0Out = _borrowToken == pair.token0() ? _amount0Out : 0;
+        uint256 amount1Out = _borrowToken == pair.token1() ? _amount1Out : 0;
+
+        pair.swap(
+            amount0Out,
+            amount1Out,
             address(this),
             abi.encode(_uniToSushi)
         );
@@ -115,11 +114,12 @@ contract Swapper {
         uint256 _amount1,
         bytes calldata data
     ) external {
+        bool uniToSushi = abi.decode(data, (bool));
         address[] memory path = new address[](2); // going from new asset to borrowed asset
         address[] memory swapPath = new address[](2); // going from borrowed asset to new asset
-        bool uniToSushi = abi.decode(data, (bool));
         IUniswapV2Router02 returnRouter = uniToSushi ? uniRouter : sushiRouter;
         IUniswapV2Router02 tradeRouter = uniToSushi ? sushiRouter : uniRouter;
+        uint256 lastIndex = path.length - 1;
 
         {
             address token0 = IUniswapV2Pair(msg.sender).token0();
@@ -139,25 +139,26 @@ contract Swapper {
                 "Unidirectional trades only."
             );
 
-            // specify the path is from not borrowed to borrowed (e.g. UNI TO WETH)
+            // specify the path is from not borrowed to borrowed (e.g. DAI TO WETH)
             path[0] = _amount0 == 0 ? token0 : token1;
-            path[1] = _amount0 == 0 ? token1 : token0;
+            path[lastIndex] = _amount0 == 0 ? token1 : token0;
 
             // specify the trade path borrowed to not borrowed (e.g. WETH to DAI)
-            swapPath[0] = path[1];
-            swapPath[1] = path[0];
+            for (uint256 i = 0; i < path.length; i++) {
+                swapPath[i] = path[path.length - (i + 1)];
+            }
         }
 
         // borrowAmount will be the non-zero amount
         uint256 borrowAmount = _amount0 == 0 ? _amount1 : _amount0;
 
-        // we want to see how much UNI we need to return given the borrowed amount of path[1] (WETH)
+        // we want to see how much DAI we need to return given the borrowed amount of path[1] (WETH)
         uint256 amountRequired =
             returnRouter.getAmountsIn(borrowAmount, path)[0];
 
-        // we want to see how much UNI we will get (WETH => UNI) given borrowed amount of path[0] (WETH)
+        // we want to see how much DAI we will get (WETH => DAI) given borrowed amount of path[0] (WETH)
         uint256 amountOutputExpected =
-            tradeRouter.getAmountsOut(borrowAmount, swapPath)[1];
+            tradeRouter.getAmountsOut(borrowAmount, swapPath)[lastIndex];
         require(
             amountOutputExpected > amountRequired,
             "This is not profitable."
@@ -165,7 +166,6 @@ contract Swapper {
 
         IERC20(swapPath[0]).approve(address(tradeRouter), borrowAmount);
 
-        // WETH to DAI trade
         tradeRouter.swapExactTokensForTokens(
             borrowAmount,
             amountOutputExpected,
@@ -174,25 +174,12 @@ contract Swapper {
             block.timestamp
         );
 
-        // approve amount required to uniswap pair
-        IERC20(swapPath[1]).approve(msg.sender, amountRequired);
-
         // transfer amount required to uniswap pair
-        IERC20(swapPath[1]).transfer(msg.sender, amountRequired);
+        IERC20(swapPath[lastIndex]).transfer(msg.sender, amountRequired);
 
-        // calculate the remaining amount left (profit) and return to sender.
+        // calculate the remaining amount left (profit) and return to EOA owner.
         uint256 profit = amountOutputExpected - amountRequired;
-        IERC20(swapPath[1]).approve(owner, profit);
-        IERC20(swapPath[1]).transfer(owner, profit);
-    }
-
-    function withdrawTokens(address _tokenAddress) external {
-        require(msg.sender == owner);
-        IERC20 token = IERC20(_tokenAddress);
-        uint256 tokenBalance = token.balanceOf(address(this));
-        require(tokenBalance > 0);
-        token.approve(msg.sender, tokenBalance);
-        token.transfer(msg.sender, tokenBalance);
+        IERC20(swapPath[lastIndex]).transfer(owner, profit);
     }
 
     function withdrawEth() external payable {

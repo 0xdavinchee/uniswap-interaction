@@ -11,6 +11,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 // - passing in the optimal path to execute the trade
 // - using the uniswaplibrary maximize profit function
 // - passing in other things into data for profitability
+// - set up an express.js server to monitor prices
+// - develop some sort of algorithm which checks prices
+//   and takes profitable trades
 
 contract Swapper {
     IUniswapV2Factory public uniFactory;
@@ -80,8 +83,7 @@ contract Swapper {
     function executeFlashArbitrage(
         address _borrowToken,
         address _otherToken,
-        uint256 _amount0Out,
-        uint256 _amount1Out,
+        uint256 _borrowAmount,
         bool _uniToSushi
     ) external {
         require(
@@ -97,8 +99,11 @@ contract Swapper {
         require(pairAddress != address(0), "Pair doesn't exist.");
 
         IUniswapV2Pair pair = IUniswapV2Pair(pairAddress);
-        uint256 amount0Out = _borrowToken == pair.token0() ? _amount0Out : 0;
-        uint256 amount1Out = _borrowToken == pair.token1() ? _amount1Out : 0;
+        address token0 = pair.token0();
+        address token1 = pair.token1();
+
+        uint256 amount0Out = _borrowToken == token0 ? _borrowAmount : 0;
+        uint256 amount1Out = _borrowToken == token1 ? _borrowAmount : 0;
 
         pair.swap(
             amount0Out,

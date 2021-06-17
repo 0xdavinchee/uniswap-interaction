@@ -15,4 +15,5 @@ exports:
       constantinople_block: 0
       petersburg_block: 0
       istanbul_block: 0
+      berlin_block: 0
 project_slug: ""

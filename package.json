@@ -1,7 +1,7 @@
 {
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
-    "@openzeppelin/contracts": "^4.1.0",
+    "@openzeppelin/contracts": "^3.4.1",
     "@typechain/ethers-v5": "^2.0.0",
     "@types/chai": "^4.2.18",
     "@types/mocha": "^8.2.2",
